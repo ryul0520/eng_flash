@@ -11,7 +11,6 @@
             --primary: #4F46E5; 
             --bg: #F8FAFC;
             --card-dark: #1E293B;
-            --star-color: #F59E0B;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -70,7 +69,6 @@
         .tool-btn.main-play { background: #10B981; color: white; border-color: #10B981; }
         .tool-btn.main-play:active { background: #059669; }
 
-        /* 모달 및 게임 UI는 기존과 동일하게 유지하되 색상만 테마에 맞춤 */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s; }
         .modal-overlay.visible { display: flex; opacity: 1; }
         .modal-box { background: white; width: 90%; max-width: 500px; height: 80%; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transform: scale(0.9); transition: transform 0.3s; display: flex; flex-direction: column; }
@@ -96,7 +94,6 @@
         .modal-action-btn.secondary { background: #f1f5f9; color: #334155; }
         .modal-action-btn.danger { background: #FEE2E2; color: #DC2626; }
 
-        /* 게임 영역 */
         #game-page { touch-action: none; }
         .game-container { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; perspective: 1200px; padding-bottom: 80px; position: relative; overflow: hidden; }
         #bg-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; opacity: 0; display: flex; justify-content: center; align-items: center; transition: opacity 0.15s; }
@@ -116,9 +113,6 @@
         .meaning { font-size: 1.8rem; font-weight: 700; color: #fff; word-break: keep-all; }
         .meaning.empty { color: #94A3B8; font-size: 1.2rem; font-style: italic; }
         
-        .star-toggle { position: absolute; top: 20px; right: 20px; font-size: 2.2rem; color: #E2E8F0; z-index: 100; padding: 10px; cursor: pointer; }
-        .star-toggle.active { color: var(--star-color); }
-
         .swipe-hint { position: absolute; bottom: 100px; display: flex; gap: 30px; z-index: 10; pointer-events: none; }
         .hint-pill { display: flex; align-items: center; gap: 6px; background: white; border-radius: 20px; padding: 6px 14px; font-size: 0.8rem; font-weight: 700; color: #94a3b8; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .hint-pill.ok { color: #8BC34A; }
@@ -145,7 +139,7 @@
     <div id="lobby-page" class="page active">
         <div class="header">
             <span style="color:var(--primary)">VOCAB MASTER</span>
-            <span id="total-stars" style="color:var(--star-color); background:#FFFBEB; padding:4px 10px; border-radius:20px; font-size:0.9rem;">⭐ 0</span>
+            <span></span>
         </div>
         <div class="lobby-content">
             
@@ -164,9 +158,6 @@
             <div class="tool-btn-group">
                 <button class="tool-btn main-play" onclick="startAllWords()" id="btn-start" style="display:none;">
                     🚀 전체 단어 학습 시작
-                </button>
-                <button class="tool-btn" onclick="startFavorites()">
-                    ⭐ 별표 친 단어만 복습
                 </button>
                 <button class="tool-btn" onclick="openWordListModal()">
                     📖 전체 단어 목록 보기
@@ -191,13 +182,11 @@
                 <div class="card-inner" id="cardInner">
                     <!-- 앞면 (영어) -->
                     <div class="card-face card-front">
-                        <div class="star-toggle" id="starFront" onclick="toggleStar(event)">☆</div>
                         <div class="word" id="en">Word</div>
                         <div style="margin-top:20px; color:#94A3B8; font-size:0.9rem; font-weight: bold;">👆 터치하여 뜻 확인</div>
                     </div>
                     <!-- 뒷면 (한글 뜻) -->
                     <div class="card-face card-back">
-                        <div class="star-toggle" id="starBack" onclick="toggleStar(event)">☆</div>
                         <div class="meaning" id="kr">Meaning</div>
                     </div>
                 </div>
@@ -224,7 +213,6 @@
             </div>
             <div class="modal-content" id="word-list-content">
                 <table id="word-table">
-                    <!-- JS로 채워짐 -->
                 </table>
             </div>
         </div>
@@ -254,32 +242,25 @@
     </div>
 
     <script>
-        // 전역 변수
-        let vocabData = []; // [ { word: "apple", mean: "사과" }, ... ]
-        let starredWords = JSON.parse(localStorage.getItem('vocabStars') || '[]');
+        let vocabData = []; 
         let activeQueue = [];
         let totalCount = 0;
         let isFlipped = false;
-        let isFavMode = false;
 
         const wordListModal = document.getElementById('word-list-modal');
         const completeModal = document.getElementById('complete-modal');
         const pauseModal = document.getElementById('pause-modal');
 
-        // 인트로 화면 숨기기
         setTimeout(() => document.getElementById('intro-screen').classList.add('hidden'), 1200);
 
-        // 초기 로드 (이전에 업로드한 내역이 localStorage에 있으면 불러옴)
         window.onload = () => {
             const savedData = localStorage.getItem('savedVocabData');
             if (savedData) {
                 vocabData = JSON.parse(savedData);
                 updateLobbyUI();
             }
-            document.getElementById('total-stars').innerText = `⭐ ${starredWords.length}`;
         };
 
-        // 백업 데이터(.json) 업로드 처리
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -290,10 +271,9 @@
                     const importedData = JSON.parse(e.target.result);
                     if (typeof importedData !== 'object' || importedData === null) throw new Error();
 
-                    // {"word": "meaning"} 형태를 [{word: "word", mean: "meaning"}] 로 변환
                     vocabData = Object.keys(importedData).map(k => ({
                         word: k,
-                        mean: importedData[k] || "" // 뜻이 없으면 빈 문자열
+                        mean: importedData[k] || ""
                     }));
 
                     localStorage.setItem('savedVocabData', JSON.stringify(vocabData));
@@ -304,10 +284,9 @@
                 }
             };
             reader.readAsText(file);
-            event.target.value = ""; // 초기화
+            event.target.value = "";
         }
 
-        // 로비 UI 업데이트
         function updateLobbyUI() {
             document.getElementById('word-count').innerText = vocabData.length;
             if (vocabData.length > 0) {
@@ -320,11 +299,8 @@
             document.getElementById(id).classList.add('active');
         }
 
-        // 전체 단어 학습 시작
         function startAllWords() {
             if (vocabData.length === 0) return;
-            isFavMode = false;
-            // 배열 깊은 복사 후 랜덤 섞기
             activeQueue = JSON.parse(JSON.stringify(vocabData));
             activeQueue.sort(() => Math.random() - 0.5);
             totalCount = activeQueue.length;
@@ -332,33 +308,11 @@
             initGame();
         }
 
-        // 즐겨찾기 학습 시작
-        function startFavorites() {
-            if (starredWords.length === 0) { 
-                alert("아직 별표(⭐)를 친 단어가 없습니다!\n학습 중에 모르는 단어에 별표를 쳐보세요."); 
-                return; 
-            }
-            isFavMode = true;
-            activeQueue = vocabData.filter(item => starredWords.includes(item.word));
-            
-            if (activeQueue.length === 0) {
-                alert("별표 친 단어를 현재 데이터에서 찾을 수 없습니다.");
-                return;
-            }
-
-            activeQueue.sort(() => Math.random() - 0.5);
-            totalCount = activeQueue.length;
-            document.getElementById('stage-info').innerText = "별표 단어 복습";
-            initGame();
-        }
-
         function restartSession() {
             completeModal.classList.remove('visible');
-            if (isFavMode) startFavorites();
-            else startAllWords();
+            startAllWords();
         }
         
-        // 단어 목록 모달 렌더링
         function openWordListModal() {
             const tbody = document.getElementById('word-table');
             tbody.innerHTML = '';
@@ -367,10 +321,8 @@
                 tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#94a3b8;">데이터가 없습니다.</td></tr>';
             } else {
                 vocabData.forEach(item => {
-                    const isStarred = starredWords.includes(item.word);
-                    const starIcon = isStarred ? '<span style="color:var(--star-color);">★</span> ' : '';
                     const meanText = item.mean.trim() === "" ? '<span style="color:#cbd5e1; font-style:italic;">(뜻 미입력)</span>' : item.mean;
-                    tbody.innerHTML += `<tr><td>${starIcon}${item.word}</td><td>${meanText}</td></tr>`;
+                    tbody.innerHTML += `<tr><td>${item.word}</td><td>${meanText}</td></tr>`;
                 });
             }
             
@@ -383,7 +335,6 @@
             setTimeout(() => wordListModal.style.display = 'none', 300);
         }
 
-        // 게임(플래시카드) 초기화
         function initGame() {
             updateCard();
             updateProgress();
@@ -416,12 +367,6 @@
                 meanEle.classList.remove('empty');
             }
             
-            const isS = starredWords.includes(card.word);
-            document.getElementById('starFront').innerText = isS ? "★" : "☆";
-            document.getElementById('starBack').innerText = isS ? "★" : "☆";
-            document.getElementById('starFront').classList.toggle('active', isS);
-            document.getElementById('starBack').classList.toggle('active', isS);
-            
             resetCardUI();
         }
 
@@ -441,7 +386,6 @@
             pauseModal.classList.remove('visible');
         }
 
-        // 외웠어요 (O) -> 큐에서 제거
         function markOk() {
             if (activeQueue.length === 0) return;
             activeQueue.shift(); 
@@ -449,32 +393,11 @@
             animateCardChange('ok');
         }
 
-        // 몰라요 (X) -> 큐의 맨 뒤로 다시 보냄
         function markNo() {
             if (activeQueue.length === 0) return;
             const card = activeQueue.shift();
             activeQueue.push(card); 
             animateCardChange('no');
-        }
-
-        // 별표(즐겨찾기) 토글
-        function toggleStar(e) {
-            e.stopPropagation();
-            if (activeQueue.length === 0) return;
-            const cardWord = activeQueue[0].word;
-            const idx = starredWords.indexOf(cardWord);
-            
-            if (idx > -1) starredWords.splice(idx, 1);
-            else starredWords.push(cardWord);
-            
-            localStorage.setItem('vocabStars', JSON.stringify(starredWords));
-            document.getElementById('total-stars').innerText = `⭐ ${starredWords.length}`;
-            
-            const isS = starredWords.includes(cardWord);
-            document.getElementById('starFront').innerText = isS ? "★" : "☆";
-            document.getElementById('starBack').innerText = isS ? "★" : "☆";
-            document.getElementById('starFront').classList.toggle('active', isS);
-            document.getElementById('starBack').classList.toggle('active', isS);
         }
 
         function goBack() { 
@@ -484,7 +407,6 @@
             showPage('lobby-page'); 
         }
 
-        // ================= 스와이프 터치 로직 =================
         const touchArea = document.getElementById('touchArea');
         const cw = document.getElementById('cardWrapper');
         const ci = document.getElementById('cardInner');
@@ -496,7 +418,7 @@
         touchArea.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
 
         cw.addEventListener('touchstart', e => {
-            if(e.target.closest('.star-toggle') || e.target.closest('.nav-btn')) return;
+            if(e.target.closest('.nav-btn')) return;
             isDragging = true; 
             startX = e.touches[0].clientX;
             currentX = startX;
@@ -516,10 +438,10 @@
             bgOverlay.style.opacity = 1;
 
             if (dx > 0) {
-                bgOverlay.style.backgroundColor = `rgba(139, 195, 74, ${prog * 0.8})`; // Green O
+                bgOverlay.style.backgroundColor = `rgba(139, 195, 74, ${prog * 0.8})`; 
                 bgIcon.innerText = "O";
             } else {
-                bgOverlay.style.backgroundColor = `rgba(239, 83, 80, ${prog * 0.8})`; // Red X
+                bgOverlay.style.backgroundColor = `rgba(239, 83, 80, ${prog * 0.8})`; 
                 bgIcon.innerText = "X";
             }
             bgIcon.style.transform = `scale(${0.5 + prog * 0.5})`;
@@ -533,7 +455,6 @@
             isDragging = false;
             let dx = currentX - startX;
 
-            // 탭 (드래그 거리가 매우 짧을 때): 카드 뒤집기
             if (Math.abs(dx) < 15) {
                 isFlipped = !isFlipped;
                 ci.style.transition = 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
@@ -543,12 +464,10 @@
                 return;
             }
 
-            // 스와이프 판정
             if (Math.abs(dx) > 80) {
-                if (dx > 0) markOkWithAnim(); // 오른쪽 -> O
-                else markNoWithAnim();        // 왼쪽 -> X
+                if (dx > 0) markOkWithAnim(); 
+                else markNoWithAnim();        
             } else {
-                // 스와이프 거리가 부족하면 원위치 복귀
                 cw.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
                 cw.style.transform = 'translateX(0) rotate(0)';
             }
