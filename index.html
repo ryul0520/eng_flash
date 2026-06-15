@@ -261,6 +261,7 @@
             }
         };
 
+        // 🌟 수정된 파일 업로드 처리 함수 (새로운 JSON 객체 포맷 지원)
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -271,10 +272,21 @@
                     const importedData = JSON.parse(e.target.result);
                     if (typeof importedData !== 'object' || importedData === null) throw new Error();
 
-                    vocabData = Object.keys(importedData).map(k => ({
-                        word: k,
-                        mean: importedData[k] || ""
-                    }));
+                    // 구버전(문자열 매핑)과 신버전(객체 매핑) 모두 호환되도록 처리
+                    vocabData = Object.keys(importedData).map(key => {
+                        const item = importedData[key];
+                        if (typeof item === 'string') {
+                            // 구버전: {"apple": "사과"}
+                            return { word: key, mean: item };
+                        } else if (typeof item === 'object' && item !== null) {
+                            // 신버전: {"apple": {"displayWord": "Apple", "mean": "사과"}}
+                            return { 
+                                word: item.displayWord || key, 
+                                mean: item.mean || "" 
+                            };
+                        }
+                        return { word: key, mean: "" };
+                    });
 
                     localStorage.setItem('savedVocabData', JSON.stringify(vocabData));
                     updateLobbyUI();
