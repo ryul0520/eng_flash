@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>VOCAB MASTER</title>
+    
+    <style>
+        :root {
+            /* 영어 학습에 어울리는 인디고/블루 테마 */
+            --primary: #4F46E5; 
+            --bg: #F8FAFC;
+            --card-dark: #1E293B;
+            --star-color: #F59E0B;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        html, body {
+            margin: 0; padding: 0; background-color: var(--bg);
+            font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif;
+            height: 100vh; height: 100dvh; overflow: hidden;
+            user-select: none; -webkit-user-select: none;
+            touch-action: none;
+            overscroll-behavior: none; 
+        }
+
+        #intro-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--primary); z-index: 10000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: white; transition: opacity 0.4s ease-out, visibility 0.4s;
+        }
+        #intro-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+        .page { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; z-index: 10; background: var(--bg); }
+        .page.active { display: flex; }
+
+        .header {
+            padding: 12px 20px; background: white; display: flex; 
+            justify-content: space-between; align-items: center; 
+            border-bottom: 1px solid #e2e8f0; font-weight: 800;
+        }
+
+        .lobby-content { 
+            flex: 1; overflow-y: auto; padding: 20px; max-width: 600px; margin: 0 auto; width: 100%; 
+            touch-action: pan-y; display: flex; flex-direction: column;
+        }
+        
+        .upload-box {
+            background: white; border: 2px dashed #CBD5E1; border-radius: 16px;
+            padding: 30px 20px; text-align: center; margin-bottom: 20px;
+            transition: all 0.2s;
+        }
+        .upload-box:active { background: #F1F5F9; }
+        .upload-btn {
+            background: var(--primary); color: white; border: none;
+            padding: 12px 24px; border-radius: 30px; font-weight: bold; font-size: 1rem;
+            cursor: pointer; margin-top: 15px; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+        }
+
+        .tool-btn-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 25px; }
+        .tool-btn {
+            background: white; border: 1px solid #e2e8f0; border-radius: 12px;
+            padding: 18px; font-weight: 800; font-size: 1.05rem; color: #334155;
+            cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;
+            transition: all 0.2s;
+        }
+        .tool-btn:active { background: #f1f5f9; transform: scale(0.98); }
+        .tool-btn.main-play { background: #10B981; color: white; border-color: #10B981; }
+        .tool-btn.main-play:active { background: #059669; }
+
+        /* 모달 및 게임 UI는 기존과 동일하게 유지하되 색상만 테마에 맞춤 */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s; }
+        .modal-overlay.visible { display: flex; opacity: 1; }
+        .modal-box { background: white; width: 90%; max-width: 500px; height: 80%; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transform: scale(0.9); transition: transform 0.3s; display: flex; flex-direction: column; }
+        .modal-overlay.visible .modal-box { transform: scale(1); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid #eee; position: sticky; top: 0; background: white; border-radius: 20px 20px 0 0; }
+        .modal-header h3 { margin: 0; font-size: 1.1rem; }
+        .modal-header button { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #888; }
+        .modal-content { flex: 1; overflow-y: auto; padding: 10px 20px; touch-action: pan-y; }
+        .modal-content table { width: 100%; border-collapse: collapse; font-size: 1rem; }
+        .modal-content td { padding: 12px 8px; border-bottom: 1px solid #f1f5f9; }
+        .modal-content td:first-child { font-weight: 700; color: #1e293b; width: 50%; font-size: 1.1rem; }
+        .modal-content td:last-child { color: #64748b; }
+
+        .overlay-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 3000; display: none; justify-content: center; align-items: center; }
+        .overlay-modal.visible { display: flex; }
+        .modal-card { background: white; width: 85%; max-width: 380px; border-radius: 24px; padding: 36px 28px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes popIn { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal-card .emoji { font-size: 4rem; margin-bottom: 12px; }
+        .modal-card h2 { margin: 0 0 8px; font-size: 1.6rem; color: #1e293b; }
+        .modal-card p { color: #64748b; font-size: 0.95rem; margin: 0 0 24px; }
+        .modal-action-btn { width: 100%; padding: 14px; border-radius: 14px; border: none; font-size: 1rem; font-weight: 800; cursor: pointer; margin-bottom: 10px; }
+        .modal-action-btn.primary { background: var(--primary); color: white; }
+        .modal-action-btn.secondary { background: #f1f5f9; color: #334155; }
+        .modal-action-btn.danger { background: #FEE2E2; color: #DC2626; }
+
+        /* 게임 영역 */
+        #game-page { touch-action: none; }
+        .game-container { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; perspective: 1200px; padding-bottom: 80px; position: relative; overflow: hidden; }
+        #bg-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; opacity: 0; display: flex; justify-content: center; align-items: center; transition: opacity 0.15s; }
+        #bg-icon { font-size: 15rem; font-weight: 900; opacity: 0.35; color: white; transform: scale(0.5); transition: transform 0.15s; }
+
+        .progress-bar-wrap { position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: #e2e8f0; z-index: 10; }
+        .progress-bar-fill { height: 100%; background: var(--primary); transition: width 0.3s ease; border-radius: 0 3px 3px 0; }
+
+        .card-wrapper { width: 85%; max-width: 360px; height: 50vh; max-height: 450px; transform-style: preserve-3d; z-index: 5; touch-action: none; }
+        .card-inner { width: 100%; height: 100%; position: relative; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; }
+        .card-inner.flipped { transform: rotateY(180deg); }
+        .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); }
+        .card-front { background: white; color: #1E293B; }
+        .card-back { background: var(--card-dark); color: white; transform: rotateY(180deg); }
+        
+        .word { font-size: 2.5rem; font-weight: 800; margin-bottom: 8px; word-break: keep-all; }
+        .meaning { font-size: 1.8rem; font-weight: 700; color: #fff; word-break: keep-all; }
+        .meaning.empty { color: #94A3B8; font-size: 1.2rem; font-style: italic; }
+        
+        .star-toggle { position: absolute; top: 20px; right: 20px; font-size: 2.2rem; color: #E2E8F0; z-index: 100; padding: 10px; cursor: pointer; }
+        .star-toggle.active { color: var(--star-color); }
+
+        .swipe-hint { position: absolute; bottom: 100px; display: flex; gap: 30px; z-index: 10; pointer-events: none; }
+        .hint-pill { display: flex; align-items: center; gap: 6px; background: white; border-radius: 20px; padding: 6px 14px; font-size: 0.8rem; font-weight: 700; color: #94a3b8; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .hint-pill.ok { color: #8BC34A; }
+        .hint-pill.no { color: #EF5350; }
+
+        .nav-bar { position: absolute; bottom: 30px; width: 100%; max-width: 400px; display: flex; justify-content: space-between; padding: 0 30px; }
+        .nav-btn { background: white; border: 2px solid #e2e8f0; color: #64748b; padding: 12px 20px; border-radius: 30px; font-weight: 800; font-size: 0.95rem; box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.1s; display: flex; align-items: center; gap: 6px; }
+        .nav-btn.ok { border-color: #8BC34A; color: #8BC34A; }
+        .nav-btn.no { border-color: #EF5350; color: #EF5350; }
+        .nav-btn:active { transform: scale(0.95); }
+        .nav-btn.ok:active { background: #8BC34A; color: white; }
+        .nav-btn.no:active { background: #EF5350; color: white; }
+    </style>
+</head>
+<body>
+
+    <div id="intro-screen">
+        <div style="font-size: 4rem; margin-bottom: 10px;">📚</div>
+        <div style="font-size: 2.2rem; font-weight: 900;">VOCAB MASTER</div>
+        <div style="font-size: 1rem; margin-top: 10px; opacity: 0.8;">나만의 영단어 암기장</div>
+    </div>
+
+    <!-- 로비 -->
+    <div id="lobby-page" class="page active">
+        <div class="header">
+            <span style="color:var(--primary)">VOCAB MASTER</span>
+            <span id="total-stars" style="color:var(--star-color); background:#FFFBEB; padding:4px 10px; border-radius:20px; font-size:0.9rem;">⭐ 0</span>
+        </div>
+        <div class="lobby-content">
+            
+            <div class="upload-box">
+                <div style="font-size: 3rem; margin-bottom: 10px;">📥</div>
+                <h3 style="margin:0 0 5px; color:#1E293B;">백업 데이터 업로드</h3>
+                <p style="margin:0; font-size:0.9rem; color:#64748B; word-break:keep-all;">이전 웹페이지에서 다운로드 받은 `.json` 파일을 선택해주세요.</p>
+                <input type="file" id="file-input" accept=".json" style="display: none;" onchange="handleFileUpload(event)">
+                <button class="upload-btn" onclick="document.getElementById('file-input').click()">파일 선택하기</button>
+            </div>
+
+            <div style="text-align: center; margin-bottom: 15px; font-weight: bold; color: #475569;" id="status-text">
+                현재 등록된 단어: <span id="word-count" style="color:var(--primary); font-size: 1.2rem;">0</span>개
+            </div>
+
+            <div class="tool-btn-group">
+                <button class="tool-btn main-play" onclick="startAllWords()" id="btn-start" style="display:none;">
+                    🚀 전체 단어 학습 시작
+                </button>
+                <button class="tool-btn" onclick="startFavorites()">
+                    ⭐ 별표 친 단어만 복습
+                </button>
+                <button class="tool-btn" onclick="openWordListModal()">
+                    📖 전체 단어 목록 보기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 게임 화면 -->
+    <div id="game-page" class="page">
+        <div class="header">
+            <button onclick="openPauseModal()" style="background:none; border:none; font-size:1.4rem; color:#64748B; padding:0 10px;">⏸</button>
+            <div id="stage-info" style="font-size:1rem; font-weight:800;">Learning</div>
+            <span id="queue-count" style="color:var(--primary); font-variant-numeric: tabular-nums; font-size:0.95rem;">0 남음</span>
+        </div>
+        
+        <div class="game-container" id="touchArea">
+            <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressFill"></div></div>
+            <div id="bg-overlay"><div id="bg-icon"></div></div>
+            
+            <div class="card-wrapper" id="cardWrapper">
+                <div class="card-inner" id="cardInner">
+                    <!-- 앞면 (영어) -->
+                    <div class="card-face card-front">
+                        <div class="star-toggle" id="starFront" onclick="toggleStar(event)">☆</div>
+                        <div class="word" id="en">Word</div>
+                        <div style="margin-top:20px; color:#94A3B8; font-size:0.9rem; font-weight: bold;">👆 터치하여 뜻 확인</div>
+                    </div>
+                    <!-- 뒷면 (한글 뜻) -->
+                    <div class="card-face card-back">
+                        <div class="star-toggle" id="starBack" onclick="toggleStar(event)">☆</div>
+                        <div class="meaning" id="kr">Meaning</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="swipe-hint">
+                <div class="hint-pill no">← 몰라요</div>
+                <div class="hint-pill ok">외웠어요 →</div>
+            </div>
+            
+            <div class="nav-bar">
+                <button class="nav-btn no" onclick="markNo()">✕ 몰라요</button>
+                <button class="nav-btn ok" onclick="markOk()">○ 외웠어요</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 단어 목록 모달 -->
+    <div id="word-list-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>📖 전체 단어 목록</h3>
+                <button onclick="closeWordListModal()">✕</button>
+            </div>
+            <div class="modal-content" id="word-list-content">
+                <table id="word-table">
+                    <!-- JS로 채워짐 -->
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 완료 모달 -->
+    <div id="complete-modal" class="overlay-modal">
+        <div class="modal-card">
+            <div class="emoji">🎉</div>
+            <h2>학습 완료!</h2>
+            <p id="complete-msg">모든 단어를 마스터했습니다!</p>
+            <button class="modal-action-btn primary" onclick="restartSession()">🔄 다시 학습하기</button>
+            <button class="modal-action-btn secondary" onclick="goBack()">← 메인으로 돌아가기</button>
+        </div>
+    </div>
+
+    <!-- 일시정지 모달 -->
+    <div id="pause-modal" class="overlay-modal">
+        <div class="modal-card">
+            <div class="emoji">⏸</div>
+            <h2>일시정지</h2>
+            <p id="pause-msg">계속 진행할까요?</p>
+            <button class="modal-action-btn primary" onclick="closePauseModal()">▶ 계속하기</button>
+            <button class="modal-action-btn secondary" onclick="restartSession()">🔄 처음부터 다시</button>
+            <button class="modal-action-btn danger" onclick="goBack()">✕ 그만두기</button>
+        </div>
+    </div>
+
+    <script>
+        // 전역 변수
+        let vocabData = []; // [ { word: "apple", mean: "사과" }, ... ]
+        let starredWords = JSON.parse(localStorage.getItem('vocabStars') || '[]');
+        let activeQueue = [];
+        let totalCount = 0;
+        let isFlipped = false;
+        let isFavMode = false;
+
+        const wordListModal = document.getElementById('word-list-modal');
+        const completeModal = document.getElementById('complete-modal');
+        const pauseModal = document.getElementById('pause-modal');
+
+        // 인트로 화면 숨기기
+        setTimeout(() => document.getElementById('intro-screen').classList.add('hidden'), 1200);
+
+        // 초기 로드 (이전에 업로드한 내역이 localStorage에 있으면 불러옴)
+        window.onload = () => {
+            const savedData = localStorage.getItem('savedVocabData');
+            if (savedData) {
+                vocabData = JSON.parse(savedData);
+                updateLobbyUI();
+            }
+            document.getElementById('total-stars').innerText = `⭐ ${starredWords.length}`;
+        };
+
+        // 백업 데이터(.json) 업로드 처리
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (typeof importedData !== 'object' || importedData === null) throw new Error();
+
+                    // {"word": "meaning"} 형태를 [{word: "word", mean: "meaning"}] 로 변환
+                    vocabData = Object.keys(importedData).map(k => ({
+                        word: k,
+                        mean: importedData[k] || "" // 뜻이 없으면 빈 문자열
+                    }));
+
+                    localStorage.setItem('savedVocabData', JSON.stringify(vocabData));
+                    updateLobbyUI();
+                    alert("✅ 단어 데이터를 성공적으로 불러왔습니다!");
+                } catch (error) {
+                    alert("❌ 잘못된 파일입니다. 이전 앱에서 다운받은 .json 파일을 업로드해주세요.");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ""; // 초기화
+        }
+
+        // 로비 UI 업데이트
+        function updateLobbyUI() {
+            document.getElementById('word-count').innerText = vocabData.length;
+            if (vocabData.length > 0) {
+                document.getElementById('btn-start').style.display = 'flex';
+            }
+        }
+
+        function showPage(id) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        // 전체 단어 학습 시작
+        function startAllWords() {
+            if (vocabData.length === 0) return;
+            isFavMode = false;
+            // 배열 깊은 복사 후 랜덤 섞기
+            activeQueue = JSON.parse(JSON.stringify(vocabData));
+            activeQueue.sort(() => Math.random() - 0.5);
+            totalCount = activeQueue.length;
+            document.getElementById('stage-info').innerText = "전체 단어 학습";
+            initGame();
+        }
+
+        // 즐겨찾기 학습 시작
+        function startFavorites() {
+            if (starredWords.length === 0) { 
+                alert("아직 별표(⭐)를 친 단어가 없습니다!\n학습 중에 모르는 단어에 별표를 쳐보세요."); 
+                return; 
+            }
+            isFavMode = true;
+            activeQueue = vocabData.filter(item => starredWords.includes(item.word));
+            
+            if (activeQueue.length === 0) {
+                alert("별표 친 단어를 현재 데이터에서 찾을 수 없습니다.");
+                return;
+            }
+
+            activeQueue.sort(() => Math.random() - 0.5);
+            totalCount = activeQueue.length;
+            document.getElementById('stage-info').innerText = "별표 단어 복습";
+            initGame();
+        }
+
+        function restartSession() {
+            completeModal.classList.remove('visible');
+            if (isFavMode) startFavorites();
+            else startAllWords();
+        }
+        
+        // 단어 목록 모달 렌더링
+        function openWordListModal() {
+            const tbody = document.getElementById('word-table');
+            tbody.innerHTML = '';
+            
+            if (vocabData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#94a3b8;">데이터가 없습니다.</td></tr>';
+            } else {
+                vocabData.forEach(item => {
+                    const isStarred = starredWords.includes(item.word);
+                    const starIcon = isStarred ? '<span style="color:var(--star-color);">★</span> ' : '';
+                    const meanText = item.mean.trim() === "" ? '<span style="color:#cbd5e1; font-style:italic;">(뜻 미입력)</span>' : item.mean;
+                    tbody.innerHTML += `<tr><td>${starIcon}${item.word}</td><td>${meanText}</td></tr>`;
+                });
+            }
+            
+            wordListModal.style.display = 'flex';
+            setTimeout(() => wordListModal.classList.add('visible'), 10);
+        }
+
+        function closeWordListModal() {
+            wordListModal.classList.remove('visible');
+            setTimeout(() => wordListModal.style.display = 'none', 300);
+        }
+
+        // 게임(플래시카드) 초기화
+        function initGame() {
+            updateCard();
+            updateProgress();
+            showPage('game-page');
+        }
+
+        function updateProgress() {
+            const remaining = activeQueue.length;
+            const done = totalCount - remaining;
+            const pct = totalCount > 0 ? (done / totalCount) * 100 : 0;
+            document.getElementById('progressFill').style.width = pct + '%';
+            document.getElementById('queue-count').innerText = `${remaining} 남음`;
+        }
+
+        function updateCard() {
+            if (activeQueue.length === 0) {
+                showComplete();
+                return;
+            }
+            
+            const card = activeQueue[0];
+            document.getElementById('en').innerText = card.word;
+            
+            const meanEle = document.getElementById('kr');
+            if (card.mean.trim() === "") {
+                meanEle.innerText = "(뜻 미입력)";
+                meanEle.classList.add('empty');
+            } else {
+                meanEle.innerText = card.mean;
+                meanEle.classList.remove('empty');
+            }
+            
+            const isS = starredWords.includes(card.word);
+            document.getElementById('starFront').innerText = isS ? "★" : "☆";
+            document.getElementById('starBack').innerText = isS ? "★" : "☆";
+            document.getElementById('starFront').classList.toggle('active', isS);
+            document.getElementById('starBack').classList.toggle('active', isS);
+            
+            resetCardUI();
+        }
+
+        function showComplete() {
+            document.getElementById('complete-msg').innerText = `총 ${totalCount}개의 단어 학습을 완료했습니다!`;
+            completeModal.classList.add('visible');
+        }
+
+        function openPauseModal() {
+            const remaining = activeQueue.length;
+            const done = totalCount - remaining;
+            document.getElementById('pause-msg').innerText = `진행률: ${done} / ${totalCount} 단어`;
+            pauseModal.classList.add('visible');
+        }
+
+        function closePauseModal() {
+            pauseModal.classList.remove('visible');
+        }
+
+        // 외웠어요 (O) -> 큐에서 제거
+        function markOk() {
+            if (activeQueue.length === 0) return;
+            activeQueue.shift(); 
+            updateProgress();
+            animateCardChange('ok');
+        }
+
+        // 몰라요 (X) -> 큐의 맨 뒤로 다시 보냄
+        function markNo() {
+            if (activeQueue.length === 0) return;
+            const card = activeQueue.shift();
+            activeQueue.push(card); 
+            animateCardChange('no');
+        }
+
+        // 별표(즐겨찾기) 토글
+        function toggleStar(e) {
+            e.stopPropagation();
+            if (activeQueue.length === 0) return;
+            const cardWord = activeQueue[0].word;
+            const idx = starredWords.indexOf(cardWord);
+            
+            if (idx > -1) starredWords.splice(idx, 1);
+            else starredWords.push(cardWord);
+            
+            localStorage.setItem('vocabStars', JSON.stringify(starredWords));
+            document.getElementById('total-stars').innerText = `⭐ ${starredWords.length}`;
+            
+            const isS = starredWords.includes(cardWord);
+            document.getElementById('starFront').innerText = isS ? "★" : "☆";
+            document.getElementById('starBack').innerText = isS ? "★" : "☆";
+            document.getElementById('starFront').classList.toggle('active', isS);
+            document.getElementById('starBack').classList.toggle('active', isS);
+        }
+
+        function goBack() { 
+            completeModal.classList.remove('visible');
+            pauseModal.classList.remove('visible');
+            updateLobbyUI();
+            showPage('lobby-page'); 
+        }
+
+        // ================= 스와이프 터치 로직 =================
+        const touchArea = document.getElementById('touchArea');
+        const cw = document.getElementById('cardWrapper');
+        const ci = document.getElementById('cardInner');
+        const bgOverlay = document.getElementById('bg-overlay');
+        const bgIcon = document.getElementById('bg-icon');
+        
+        let startX = 0, currentX = 0, isDragging = false;
+
+        touchArea.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
+
+        cw.addEventListener('touchstart', e => {
+            if(e.target.closest('.star-toggle') || e.target.closest('.nav-btn')) return;
+            isDragging = true; 
+            startX = e.touches[0].clientX;
+            currentX = startX;
+            cw.style.transition = 'none';
+        }, { passive: false });
+
+        cw.addEventListener('touchmove', e => {
+            if (!isDragging) return;
+            e.preventDefault();
+            
+            currentX = e.touches[0].clientX;
+            let dx = currentX - startX;
+            
+            cw.style.transform = `translateX(${dx}px) rotate(${dx * 0.05}deg)`;
+            
+            const prog = Math.min(Math.abs(dx) / (window.innerWidth * 0.4), 1);
+            bgOverlay.style.opacity = 1;
+
+            if (dx > 0) {
+                bgOverlay.style.backgroundColor = `rgba(139, 195, 74, ${prog * 0.8})`; // Green O
+                bgIcon.innerText = "O";
+            } else {
+                bgOverlay.style.backgroundColor = `rgba(239, 83, 80, ${prog * 0.8})`; // Red X
+                bgIcon.innerText = "X";
+            }
+            bgIcon.style.transform = `scale(${0.5 + prog * 0.5})`;
+        }, { passive: false });
+
+        cw.addEventListener('touchend', e => {
+            bgOverlay.style.opacity = 0;
+            bgIcon.style.transform = 'scale(0.5)';
+
+            if (!isDragging) return;
+            isDragging = false;
+            let dx = currentX - startX;
+
+            // 탭 (드래그 거리가 매우 짧을 때): 카드 뒤집기
+            if (Math.abs(dx) < 15) {
+                isFlipped = !isFlipped;
+                ci.style.transition = 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+                ci.classList.toggle('flipped', isFlipped);
+                cw.style.transition = 'transform 0.3s';
+                cw.style.transform = 'translateX(0) rotate(0)';
+                return;
+            }
+
+            // 스와이프 판정
+            if (Math.abs(dx) > 80) {
+                if (dx > 0) markOkWithAnim(); // 오른쪽 -> O
+                else markNoWithAnim();        // 왼쪽 -> X
+            } else {
+                // 스와이프 거리가 부족하면 원위치 복귀
+                cw.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                cw.style.transform = 'translateX(0) rotate(0)';
+            }
+        });
+
+        function markOkWithAnim() {
+            activeQueue.shift();
+            updateProgress();
+            const destX = window.innerWidth + 200;
+            cw.style.transition = 'transform 0.25s ease-out';
+            cw.style.transform = `translateX(${destX}px) rotate(30deg)`;
+            setTimeout(() => updateCard(), 250);
+        }
+
+        function markNoWithAnim() {
+            const card = activeQueue.shift();
+            activeQueue.push(card);
+            const destX = -window.innerWidth - 200;
+            cw.style.transition = 'transform 0.25s ease-out';
+            cw.style.transform = `translateX(${destX}px) rotate(-30deg)`;
+            setTimeout(() => updateCard(), 250);
+        }
+
+        function animateCardChange(type) {
+            const destX = type === 'ok' ? window.innerWidth + 200 : -window.innerWidth - 200;
+            const rot = type === 'ok' ? 30 : -30;
+            cw.style.transition = 'transform 0.25s ease-out';
+            cw.style.transform = `translateX(${destX}px) rotate(${rot}deg)`;
+            setTimeout(() => updateCard(), 250);
+        }
+
+        function resetCardUI() {
+            isFlipped = false;
+            ci.style.transition = 'none'; 
+            ci.classList.remove('flipped');
+            cw.style.transition = 'none';
+            cw.style.transform = 'translateX(0) rotate(0)';
+            void cw.offsetWidth; 
+        }
+    </script>
+</body>
+</html>
