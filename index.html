@@ -261,7 +261,7 @@
             }
         };
 
-        // 🌟 수정된 파일 업로드 처리 함수 (새로운 JSON 객체 포맷 지원)
+        // 🌟 수정된 파일 업로드 처리 함수 (메타데이터 객체 포맷 우회 및 마이그레이션)
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -272,9 +272,19 @@
                     const importedData = JSON.parse(e.target.result);
                     if (typeof importedData !== 'object' || importedData === null) throw new Error();
 
-                    // 구버전(문자열 매핑)과 신버전(객체 매핑) 모두 호환되도록 처리
-                    vocabData = Object.keys(importedData).map(key => {
-                        const item = importedData[key];
+                    let targetDict = importedData;
+                    
+                    // 최신 v2 백업 포맷일 경우 최상위 객체가 아닌 내부의 vocab 필드를 정확히 지목하도록 변경
+                    if (importedData.version === 2 && typeof importedData.vocab === 'object' && importedData.vocab !== null) {
+                        targetDict = importedData.vocab;
+                    } else if (importedData.vocab && typeof importedData.vocab === 'object') {
+                        // 명시적 버전 표기가 없더라도 최상위에 vocab 필드가 있는 구조의 마이그레이션 예외 대응
+                        targetDict = importedData.vocab;
+                    }
+
+                    // 구버전(단순 텍스트 매핑)과 신버전(객체 세부 매핑)을 안전하게 통합 파싱
+                    vocabData = Object.keys(targetDict).map(key => {
+                        const item = targetDict[key];
                         if (typeof item === 'string') {
                             // 구버전: {"apple": "사과"}
                             return { word: key, mean: item };
